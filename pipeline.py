@@ -17,6 +17,13 @@ import sys
 import time
 import string
 
+try:
+    import warcio
+    from warcio.archiveiterator import ArchiveIterator
+    from warcio.warcwriter import WARCWriter
+except:
+    raise Exception("Please install warc with 'sudo pip install warcio --upgrade'.")
+
 import seesaw
 from seesaw.externalprocess import WgetDownload
 from seesaw.pipeline import Pipeline
@@ -122,7 +129,67 @@ class PrepareDirectories(SimpleTask):
         item['warc_file_base'] = '%s-%s-%s' % (self.warc_prefix, escaped_item_name[:50],
             time.strftime('%Y%m%d-%H%M%S'))
 
-        open('%(item_dir)s/%(warc_file_base)s.warc.gz' % item, 'w').close()
+        open('%(item_dir)s/%(warc_file_base)s.warc' % item, 'w').close()
+
+
+class Deduplicate(SimpleTask):
+    def __init__(self):
+        SimpleTask.__init__(self, "Deduplicate")
+
+    def process(self, item):
+        digests = {}
+        input_filename = "%(item_dir)s/%(warc_file_base)s.warc" % item
+        output_filename = "%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz" % item
+        with open(input_filename, 'rb') as f_in, \
+                open(output_filename, 'wb') as f_out:
+            writer = WARCWriter(filebuf=f_out, gzip=True)
+            for record in ArchiveIterator(f_in):
+                url = record.rec_headers.get_header('WARC-Target-URI')
+                if url is not None and url.startswith('<'):
+                    url = re.search('^<(.+)>$', url).group(1)
+                    record.rec_headers.replace_header('WARC-Target-URI', url)
+                if record.rec_headers.get_header('WARC-Type') == 'response' \
+                        and record.rec_headers.get_header('Content-Length') > 10000 \
+                        and record.rec_headers.get_header('WARC-Target-URI').endswith('.jpg'):
+                    print('Checking', record.rec_headers.get_header('WARC-Target-URI'))
+                    digest = record.rec_headers.get_header('WARC-Payload-Digest')
+                    if digest in digests:
+                        writer.write_record(
+                            self._record_response_to_revisit(writer, record,
+                                                             digests[digest])
+                        )
+                    else:
+                        digests[digest] = (
+                            record.rec_headers.get_header('WARC-Record-ID'),
+                            record.rec_headers.get_header('WARC-Date'),
+                            record.rec_headers.get_header('WARC-Target-URI')
+                        )
+                        writer.write_record(record)
+                elif record.rec_headers.get_header('WARC-Type') == 'warcinfo':
+                    record.rec_headers.replace_header('WARC-Filename', output_filename)
+                    writer.write_record(record)
+                else:
+                    writer.write_record(record)
+
+    def _record_response_to_revisit(self, writer, record, duplicate):
+        print('Found duplicate with', duplicate)
+        warc_headers = record.rec_headers
+        warc_headers.replace_header('WARC-Refers-To', duplicate[0])
+        warc_headers.replace_header('WARC-Refers-To-Date', duplicate[1])
+        warc_headers.replace_header('WARC-Refers-To-Target-URI', duplicate[2])
+        warc_headers.replace_header('WARC-Type', 'revisit')
+        warc_headers.replace_header('WARC-Truncated', 'length')
+        warc_headers.replace_header('WARC-Profile',
+                                    'http://netpreserve.org/warc/1.0/' \
+                                    'revisit/identical-payload-digest')
+        warc_headers.remove_header('WARC-Block-Digest')
+        warc_headers.remove_header('Content-Length')
+        return writer.create_warc_record(
+            record.rec_headers.get_header('WARC-Target-URI'),
+            'revisit',
+            warc_headers=warc_headers,
+            http_headers=record.http_headers
+        )
 
 
 class MoveFiles(SimpleTask):
@@ -134,8 +201,8 @@ class MoveFiles(SimpleTask):
         if os.path.exists('%(item_dir)s/%(warc_file_base)s.warc' % item):
             raise Exception('Please compile wget with zlib support!')
 
-        os.rename('%(item_dir)s/%(warc_file_base)s.warc.gz' % item,
-              '%(data_dir)s/%(warc_file_base)s.warc.gz' % item)
+        os.rename('%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item,
+              '%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item)
 
         shutil.rmtree('%(item_dir)s' % item)
 
@@ -192,7 +259,8 @@ class WgetArgs(object):
             '--warc-file', ItemInterpolation('%(item_dir)s/%(warc_file_base)s'),
             '--warc-header', 'operator: Archive Team',
             '--warc-header', 'tinypic-dld-script-version: ' + VERSION,
-            '--warc-header', ItemInterpolation('tinypic-item: %(item_name)s')
+            '--warc-header', ItemInterpolation('tinypic-item: %(item_name)s'),
+            "--no-warc-compression"
         ]
 
         item_name = item['item_name']
@@ -249,16 +317,17 @@ pipeline = Pipeline(
             'warc_file_base': ItemValue('warc_file_base'),
         }
     ),
+    Deduplicate(),
     PrepareStatsForTracker(
         defaults={'downloader': downloader, 'version': VERSION},
         file_groups={
             'data': [
-                ItemInterpolation('%(item_dir)s/%(warc_file_base)s.warc.gz')
+                ItemInterpolation('%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz')
             ]
         },
         id_function=stats_id_function,
     ),
-    MoveFiles(),
+    #MoveFiles(),
     LimitConcurrent(NumberConfigValue(min=1, max=20, default='20',
         name='shared:rsync_threads', title='Rsync threads',
         description='The maximum number of concurrent uploads.'),
@@ -267,7 +336,7 @@ pipeline = Pipeline(
             downloader=downloader,
             version=VERSION,
             files=[
-                ItemInterpolation('%(data_dir)s/%(warc_file_base)s.warc.gz')
+                ItemInterpolation('%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz')
             ],
             rsync_target_source_path=ItemInterpolation('%(data_dir)s/'),
             rsync_extra_args=[
