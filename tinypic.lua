@@ -33,6 +33,15 @@ end
 allowed = function(url, parenturl)
   if string.match(url, "'+")
       or string.match(url, "[<>\\%*%$;%^%[%],%(%){}]")
+      or string.match(url, "^https?://de%.tinypic%.com/")
+      or string.match(url, "^https?://es%.tinypic%.com/")
+      or string.match(url, "^https?://fr%.tinypic%.com/")
+      or string.match(url, "^https?://it%.tinypic%.com/")
+      or string.match(url, "^https?://nl%.tinypic%.com/")
+      or string.match(url, "^https?://pl%.tinypic%.com/")
+      or string.match(url, "^https?://pt-br%.tinypic%.com/")
+      or string.match(url, "^https?://sv%.tinypic%.com/")
+      or string.match(url, "^https?://[^/]*tinypic%.com/language.php")
       or not string.match(url, "^https?://[^/]*tinypic%.com") then
     return false
   end
