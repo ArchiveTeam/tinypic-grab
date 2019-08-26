@@ -149,8 +149,7 @@ class Deduplicate(SimpleTask):
                     url = re.search('^<(.+)>$', url).group(1)
                     record.rec_headers.replace_header('WARC-Target-URI', url)
                 if record.rec_headers.get_header('WARC-Type') == 'response' \
-                        and record.rec_headers.get_header('Content-Length') > 10000 \
-                        and record.rec_headers.get_header('WARC-Target-URI').endswith('.jpg'):
+                        and int(record.rec_headers.get_header('Content-Length')) > 10000:
                     print('Checking', record.rec_headers.get_header('WARC-Target-URI'))
                     digest = record.rec_headers.get_header('WARC-Payload-Digest')
                     if digest in digests:

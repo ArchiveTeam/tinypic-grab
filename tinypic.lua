@@ -144,9 +144,17 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   if allowed(url, nil) then
-    local post_id, server = string.match(url, "^https?://tinypic%.com/view%.php%?pic=([a-z0-9]+)&s=([0-9]+)$")
-    if post_id and server then
-      check("http://s" .. server .. ".tinypic.com/" .. post_id .. "_th.jpg")
+    if string.match(url, "view%.php") then
+      local post_id, server = string.match(url, "^https?://tinypic%.com/view%.php%?pic=([a-z0-9]+)&s=([0-9]+)$")
+      if post_id and server then
+        check("http://s" .. server .. ".tinypic.com/" .. post_id .. "_th.jpg")
+      end
+    else
+      local post_id, server = string.match(url, "^https?://tinypic%.com/player%.php%?v=([a-z0-9]+)&s=([0-9]+)$")
+      if post_id and server then
+        check("http://v" .. server .. ".tinypic.com/" .. post_id .. "_th.jpg")
+        check("http://v" .. server .. ".tinypic.com/" .. post_id .. ".flv")
+      end
     end
     html = read_file(file)
     for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
@@ -185,7 +193,8 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       return wget.actions.EXIT
     end
     ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$")] = true
-    if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$") then
+    if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$")
+        or string.match(http_stat["newloc"], "^/player%.php%?v=[a-z0-9]+&s=[0-9]+$") then
       initial_urls[string.match(url["url"], "^(https?://[^/]+)") .. http_stat["newloc"]] = true
     end
   end
