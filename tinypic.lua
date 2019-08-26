@@ -12,6 +12,7 @@ local downloaded = {}
 local addedtolist = {}
 local abortgrab = false
 
+local initial_urls = {}
 local ids = {}
 
 for ignore in io.open("ignore-list", "r"):lines() do
@@ -60,9 +61,15 @@ wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_pars
   local url = urlpos["url"]["url"]
   local html = urlpos["link_expect_html"]
 
-  if string.match(url, "[<>\\%*%$;%^%[%],%(%){}]") then
+  if string.match(url, "[<>\\%*%$;%^%[%],%(%){}\"]")
+      or string.match(url, "^http?://s[0-9]+%.tinypic%.com/[a-z0-9]+_th%.jpg") then
     return false
   end
+
+--  if initial_urls[url] then
+--    initial_urls[url] = false
+--    return true
+--  end
 
   if (downloaded[url] ~= true and addedtolist[url] ~= true)
       and (allowed(url, parent["url"]) or html == 0) then
@@ -128,6 +135,10 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
   end
 
   if allowed(url, nil) then
+    local post_id, server = string.match(url, "^https?://tinypic%.com/view%.php%?pic=([a-z0-9]+)&s=([0-9]+)$")
+    if post_id and server then
+      check("http://s" .. server .. ".tinypic.com/" .. post_id .. "_th.jpg")
+    end
     html = read_file(file)
     for newurl in string.gmatch(string.gsub(html, "&quot;", '"'), '([^"]+)') do
       checknewurl(newurl)
@@ -159,8 +170,15 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
 
-  if string.match(url["url"], "^https?://tinypic%.com/r/([a-z0-9]+)/([0-9]+)$") then
+  if not allowed(url["url"])
+      and string.match(url["url"], "^https?://tinypic%.com/r/[a-z0-9]+/[0-9]+$") then
+    if http_stat["newloc"] == "/" then
+      return wget.actions.EXIT
+    end
     ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$")] = true
+    if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$") then
+      initial_urls[string.match(url["url"], "^(https?://[^/]+)") .. http_stat["newloc"]] = true
+    end
   end
 
   if (status_code >= 300 and status_code <= 399) then
