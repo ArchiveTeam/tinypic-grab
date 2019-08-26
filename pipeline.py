@@ -202,12 +202,12 @@ class WgetArgs(object):
         item['item_type'] = item_type
         item['item_value'] = item_value
 
-        if item_type == 'users':
+        if item_type == 'pics':
             server, start, end = item_value.split(':', 2)
-            for i in range(int(start), int(end)+1)s:
-                image_id = self.into_to_str(i)
+            for i in range(int(start), int(end)+1):
+                image_id = self.int_to_str(i)
                 wget_args.extend(['--warc-header', 'tinypic-photo: ' + image_id])
-                wget_args.append('http://nl.tinypic.com/r/{}/{}'.format(image_id, server))
+                wget_args.append('http://tinypic.com/r/{}/{}'.format(image_id, server))
         else:
             raise Exception('Unknown item')
 

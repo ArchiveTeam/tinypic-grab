@@ -32,7 +32,7 @@ end
 allowed = function(url, parenturl)
   if string.match(url, "'+")
       or string.match(url, "[<>\\%*%$;%^%[%],%(%){}]")
-      or not string.match(url, "^https?://[^/]*tinypic.com" then
+      or not string.match(url, "^https?://[^/]*tinypic%.com") then
     return false
   end
 
@@ -159,8 +159,8 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
 
-  if string.match(url["url"], "^http://tinypic.com/r/([a-z0-9]+)/([0-9]+)$") then
-    ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$"] = true
+  if string.match(url["url"], "^https?://tinypic%.com/r/([a-z0-9]+)/([0-9]+)$") then
+    ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$")] = true
   end
 
   if (status_code >= 300 and status_code <= 399) then
