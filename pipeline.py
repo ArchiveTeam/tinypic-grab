@@ -17,12 +17,11 @@ import sys
 import time
 import string
 
-try:
-    import warcio
-    from warcio.archiveiterator import ArchiveIterator
-    from warcio.warcwriter import WARCWriter
-except:
-    raise Exception("Please install warc with 'sudo pip install warcio --upgrade'.")
+sys.path.insert(0, os.getcwd())
+
+import warcio
+from warcio.archiveiterator import ArchiveIterator
+from warcio.warcwriter import WARCWriter
 
 import seesaw
 from seesaw.externalprocess import WgetDownload
@@ -30,10 +29,11 @@ from seesaw.pipeline import Pipeline
 from seesaw.project import Project
 from seesaw.util import find_executable
 
-
-# check the seesaw version
 if StrictVersion(seesaw.__version__) < StrictVersion('0.8.5'):
     raise Exception('This pipeline needs seesaw version 0.8.5 or higher.')
+
+if warcio.__version__ != '1.7.1':
+    raise Exception('Warcio should be version 1.7.1.')
 
 
 ###########################################################################
@@ -59,15 +59,13 @@ WGET_LUA = find_executable(
 if not WGET_LUA:
     raise Exception('No usable Wget+Lua found.')
 
-assert subprocess.call(['./warrior-install.sh']) == 0
-
 
 ###########################################################################
 # The version number of this pipeline definition.
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20190727.04'
+VERSION = '20190728.01'
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'tinypic'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -198,7 +196,6 @@ class MoveFiles(SimpleTask):
         SimpleTask.__init__(self, 'MoveFiles')
 
     def process(self, item):
-        # NEW for 2014! Check if wget was compiled with zlib support
         if os.path.exists('%(item_dir)s/%(warc_file_base)s.warc' % item):
             raise Exception('Please compile wget with zlib support!')
 
@@ -217,7 +214,6 @@ PIPELINE_SHA1 = get_hash(os.path.join(CWD, 'pipeline.py'))
 LUA_SHA1 = get_hash(os.path.join(CWD, 'tinypic.lua'))
 
 def stats_id_function(item):
-    # NEW for 2014! Some accountability hashes and stats.
     d = {
         'pipeline_hash': PIPELINE_SHA1,
         'lua_hash': LUA_SHA1,
@@ -333,7 +329,7 @@ pipeline = Pipeline(
         },
         id_function=stats_id_function,
     ),
-    #MoveFiles(),
+    MoveFiles(),
     LimitConcurrent(NumberConfigValue(min=1, max=20, default='20',
         name='shared:rsync_threads', title='Rsync threads',
         description='The maximum number of concurrent uploads.'),
