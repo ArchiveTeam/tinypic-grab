@@ -149,7 +149,7 @@ class Deduplicate(SimpleTask):
                     url = re.search('^<(.+)>$', url).group(1)
                     record.rec_headers.replace_header('WARC-Target-URI', url)
                 if record.rec_headers.get_header('WARC-Type') == 'response' \
-                        and int(record.rec_headers.get_header('Content-Length')) > 10000:
+                        and int(record.rec_headers.get_header('Content-Length')) > 1000:
                     print('Checking', record.rec_headers.get_header('WARC-Target-URI'))
                     digest = record.rec_headers.get_header('WARC-Payload-Digest')
                     if digest in digests:
@@ -165,7 +165,7 @@ class Deduplicate(SimpleTask):
                         )
                         writer.write_record(record)
                 elif record.rec_headers.get_header('WARC-Type') == 'warcinfo':
-                    record.rec_headers.replace_header('WARC-Filename', output_filename)
+                    record.rec_headers.replace_header('WARC-Filename', '%(warc_file_base)s-deduplicated.warc.gz')
                     writer.write_record(record)
                 else:
                     writer.write_record(record)
@@ -269,12 +269,17 @@ class WgetArgs(object):
         item['item_type'] = item_type
         item['item_value'] = item_value
 
+        def add_tinypic_id(a, b):
+            wget_args.extend(['--warc-header', 'tinypic-photo-silo_id: {}_{}'.format(a, b)])
+            wget_args.append('http://tinypic.com/r/{}/{}'.format(b, a))
+
         if item_type == 'pics':
-            server, start, end = item_value.split(':', 2)
+            start, end = item_value.split('-', 1)
             for i in range(int(start), int(end)+1):
-                image_id = self.int_to_str(i)
-                wget_args.extend(['--warc-header', 'tinypic-photo: ' + image_id])
-                wget_args.append('http://tinypic.com/r/{}/{}'.format(image_id, server))
+                for j in range(2, 10):
+                    add_tinypic_id(j, self.int_to_str(i))
+                for j in range(int(i)*3, int(i)*3+3):
+                    add_tinypic_id(1, self.int_to_str(j))
         else:
             raise Exception('Unknown item')
 

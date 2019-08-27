@@ -143,7 +143,7 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
-  if allowed(url, nil) then
+  if allowed(url, nil) and not (string.match(url, "%.jpg$") or string.match(url, "%.flv")) then
     if string.match(url, "view%.php") then
       local post_id, server = string.match(url, "^https?://tinypic%.com/view%.php%?pic=([a-z0-9]+)&s=([0-9]+)$")
       if post_id and server then
@@ -208,7 +208,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     elseif not string.match(newloc, "^https?://") then
       newloc = string.match(url["url"], "^(https?://.+/)") .. newloc
     end
-    if downloaded[newloc] == true or addedtolist[newloc] == true then
+    if downloaded[newloc] == true or addedtolist[newloc] == true or not allowed(newloc, url["url"]) then
       return wget.actions.EXIT
     end
   end
