@@ -1,14 +1,16 @@
 #!/bin/bash
 
-PIP=pip
+echo "Installing warcio"
 
 if type pip3 > /dev/null 2>&1
 then
-  PIP=pip3
+  if ! sudo pip3 install warcio --upgrade
+  then
+    exit 1
+  fi
 fi
 
-echo "Installing warcio"
-if ! sudo $PIP install warcio --upgrade
+if ! sudo pip install warcio --upgrade
 then
   exit 1
 fi
