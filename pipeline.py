@@ -196,9 +196,6 @@ class MoveFiles(SimpleTask):
         SimpleTask.__init__(self, 'MoveFiles')
 
     def process(self, item):
-        if os.path.exists('%(item_dir)s/%(warc_file_base)s.warc' % item):
-            raise Exception('Please compile wget with zlib support!')
-
         os.rename('%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item,
               '%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item)
 
