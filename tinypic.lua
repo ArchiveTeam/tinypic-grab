@@ -194,6 +194,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     if status_code >= 300 and status_code <= 399 then
       if http_stat["newloc"] == "http://tinypic.com/images/404.gif" then
         io.stdout:write("Image doesn\'t exist.\n")
+        tries = 0
         return wget.actions.EXIT
       elseif string.match(http_stat["newloc"], "^http?://[^/]*tinypic%.com/redirect%.php%?url=https?://s[0-9]+%.tinypic%.com/" .. post_id .. "_th%.jpg") then
         io.stdout:write("Found a video.")
@@ -215,6 +216,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       newloc = string.match(url["url"], "^(https?://.+/)") .. newloc
     end
     if downloaded[newloc] == true or addedtolist[newloc] == true or not allowed(newloc, url["url"]) then
+      tries = 0
       return wget.actions.EXIT
     end
   end
