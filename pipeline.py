@@ -65,7 +65,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20190828.05'
+VERSION = '20190828.06'
 USER_AGENT = 'ArchiveTeam'
 TRACKER_ID = 'tinypic'
 TRACKER_HOST = 'tracker.archiveteam.org'
@@ -249,12 +249,13 @@ class WgetArgs(object):
             '--tries', 'inf',
             '--domains', 'tinypic.com',
             '--span-hosts',
+            '--header', 'Referer: http://tinypic.com/',
             '--waitretry', '30',
             '--warc-file', ItemInterpolation('%(item_dir)s/%(warc_file_base)s'),
             '--warc-header', 'operator: Archive Team',
             '--warc-header', 'tinypic-dld-script-version: ' + VERSION,
             '--warc-header', ItemInterpolation('tinypic-item: %(item_name)s'),
-            "--no-warc-compression"
+            '--no-warc-compression'
         ]
 
         item_name = item['item_name']
@@ -266,7 +267,7 @@ class WgetArgs(object):
 
         def add_tinypic_id(a, b):
             wget_args.extend(['--warc-header', 'tinypic-photo-silo_id: {}_{}'.format(a, b)])
-            wget_args.append('http://tinypic.com/r/{}/{}'.format(b, a))
+            wget_args.append('http://s{}.tinypic.com/{}_th.jpg'.format(a, b))
 
         if item_type == 'ids':
             start, end = item_value.split('-', 1)

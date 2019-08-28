@@ -12,7 +12,6 @@ local downloaded = {}
 local addedtolist = {}
 local abortgrab = false
 
-local initial_urls = {}
 local ids = {}
 
 for ignore in io.open("ignore-list", "r"):lines() do
@@ -42,6 +41,7 @@ allowed = function(url, parenturl)
       or string.match(url, "^https?://pt-br%.tinypic%.com/")
       or string.match(url, "^https?://sv%.tinypic%.com/")
       or string.match(url, "^https?://[^/]*tinypic%.com/language.php")
+      or string.match(url, "^https?://[^/]*tinypic%.com/view%.php%?pic=[a-z0-9]+&$")
       or not string.match(url, "^https?://[^/]*tinypic%.com") then
     return false
   end
@@ -74,11 +74,6 @@ wget.callbacks.download_child_p = function(urlpos, parent, depth, start_url_pars
       or string.match(url, "^http?://s[0-9]+%.tinypic%.com/[a-z0-9]+_th%.jpg") then
     return false
   end
-
---  if initial_urls[url] then
---    initial_urls[url] = false
---    return true
---  end
 
   if (downloaded[url] ~= true and addedtolist[url] ~= true)
       and (allowed(url, parent["url"]) or html == 0) then
@@ -143,6 +138,12 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     end
   end
 
+  if string.match(url, "^https?://s[0-9]+%.tinypic%.com/[a-z0-9]+_th%.jpg$")
+      and allowed(url, nil) and status_code == 200 then
+    local server, post_id = string.match(url, "^https?://s([0-9]+)%.tinypic%.com/([a-z0-9]+)_th%.jpg$")
+    check("http://tinypic.com/r/" .. post_id .. "/" .. server)
+  end
+
   if allowed(url, nil) and not (string.match(url, "%.jpg$") or string.match(url, "%.flv")) then
     if string.match(url, "view%.php") then
       local post_id, server = string.match(url, "^https?://tinypic%.com/view%.php%?pic=([a-z0-9]+)&s=([0-9]+)$")
@@ -187,17 +188,20 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
 
-  if not allowed(url["url"])
-      and string.match(url["url"], "^https?://tinypic%.com/r/[a-z0-9]+/[0-9]+$") then
-    ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$")] = true
+  if string.match(url["url"], "^https?://s[0-9]+%.tinypic%.com/[a-z0-9]+_th%.jpg$") then
+    local post_id = string.match(url["url"], "/([a-z0-9]+)_th%.jpg$")
+    ids[post_id] = true
     if status_code >= 300 and status_code <= 399 then
-      if http_stat["newloc"] == "/" then
+      if http_stat["newloc"] == "http://tinypic.com/images/404.gif" then
+        io.stdout:write("Image doesn\'t exist.\n")
         return wget.actions.EXIT
+      elseif string.match(http_stat["newloc"], "^http?://[^/]*tinypic%.com/redirect%.php%?url=https?://s[0-9]+%.tinypic%.com/" .. post_id .. "_th%.jpg") then
+        io.stdout:write("Found a video.")
       end
-      if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$")
-          or string.match(http_stat["newloc"], "^/player%.php%?v=[a-z0-9]+&s=[0-9]+$") then
-        initial_urls[string.match(url["url"], "^(https?://[^/]+)") .. http_stat["newloc"]] = true
-      end
+      io.stdout:write("Found strange redirect.\n")
+      abortgrab = true
+    elseif status_code == 200 then
+      io.stdout:write("Found an image.\n")
     end
   end
 
@@ -230,7 +234,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
       or status_code  == 0 then
     io.stdout:write("Server returned "..http_stat.statcode.." ("..err.."). Sleeping.\n")
     io.stdout:flush()
-    local maxtries = 8
+    local maxtries = 10
     if not allowed(url["url"], nil) then
         maxtries = 2
     end
