@@ -271,7 +271,7 @@ class WgetArgs(object):
             wget_args.extend(['--warc-header', 'tinypic-photo-silo_id: {}_{}'.format(a, b)])
             wget_args.append('http://tinypic.com/r/{}/{}'.format(b, a))
 
-        if item_type == 'pics':
+        if item_type == 'ids':
             start, end = item_value.split('-', 1)
             for i in range(int(start), int(end)+1):
                 for j in range(2, 10):

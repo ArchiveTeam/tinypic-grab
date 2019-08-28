@@ -2,4 +2,3 @@
 *.pyc
 wget-lua
 data/
-test.py
