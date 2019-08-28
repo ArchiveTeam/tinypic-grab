@@ -189,17 +189,19 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   if not allowed(url["url"])
       and string.match(url["url"], "^https?://tinypic%.com/r/[a-z0-9]+/[0-9]+$") then
-    if http_stat["newloc"] == "/" then
-      return wget.actions.EXIT
-    end
     ids[string.match(url["url"], "/([a-z0-9]+)/[0-9]+$")] = true
-    if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$")
-        or string.match(http_stat["newloc"], "^/player%.php%?v=[a-z0-9]+&s=[0-9]+$") then
-      initial_urls[string.match(url["url"], "^(https?://[^/]+)") .. http_stat["newloc"]] = true
+    if status_code >= 300 and status_code <= 399 then
+      if http_stat["newloc"] == "/" then
+        return wget.actions.EXIT
+      end
+      if string.match(http_stat["newloc"], "^/view%.php%?pic=[a-z0-9]+&s=[0-9]+$")
+          or string.match(http_stat["newloc"], "^/player%.php%?v=[a-z0-9]+&s=[0-9]+$") then
+        initial_urls[string.match(url["url"], "^(https?://[^/]+)") .. http_stat["newloc"]] = true
+      end
     end
   end
 
-  if (status_code >= 300 and status_code <= 399) then
+  if status_code >= 300 and status_code <= 399 then
     local newloc = string.match(http_stat["newloc"], "^([^#]+)")
     if string.match(newloc, "^//") then
       newloc = string.match(url["url"], "^(https?:)") .. string.match(newloc, "^//(.+)")
@@ -213,7 +215,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
     end
   end
   
-  if (status_code >= 200 and status_code <= 399) then
+  if status_code >= 200 and status_code <= 399 then
     downloaded[url["url"]] = true
     downloaded[string.gsub(url["url"], "https?://", "http://")] = true
   end
