@@ -42,6 +42,7 @@ allowed = function(url, parenturl)
       or string.match(url, "^https?://sv%.tinypic%.com/")
       or string.match(url, "^https?://[^/]*tinypic%.com/language.php")
       or string.match(url, "^https?://[^/]*tinypic%.com/view%.php%?pic=[a-z0-9]+&$")
+      or string.match(url, "^https?://i[0-9]+%.tinypic%.com/[a-z0-9]+%.jpg$")
       or not string.match(url, "^https?://[^/]*tinypic%.com") then
     return false
   end
